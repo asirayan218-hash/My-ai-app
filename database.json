@@ -4,5 +4,14 @@
     "userMessage": "hi, what is the price?",
     "botReply": "Our automation packages start at $100. Would you like to schedule a quick demo?",
     "timestamp": "2026-11-12T02:06:26.945Z"
+  },
+  {
+    "id": 1794449558344,
+    "userMessage": "hi, what is the price and my phone is 03001234567",
+    "botReply": "Our automation packages start at $100. Would you like to schedule a quick demo?",
+    "name": "Not provided",
+    "phone": "03001234567",
+    "priority": "🔥 HOT LEAD (High Intent)",
+    "timestamp": "2026-11-12T02:12:38.344Z"
   }
 ]
