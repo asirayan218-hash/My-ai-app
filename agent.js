@@ -5,22 +5,25 @@ const app = express();
 
 app.use(express.json());
 
-// FORMSPREE EMAIL ALERT FUNCTION (No Passwords Required!)
+// ENHANCED FORMSPREE ALERT WITH LEAD SCORING & CONTACT INFO
 async function sendEmailAlert(leadData) {
     try {
         await axios.post('https://formspree.io/f/xjywvelj', {
-            subject: '🚨 New Lead Alert from Chatbot',
-            userMessage: leadData.userMessage,
+            subject: `${leadData.priority} - New Lead from Chatbot!`,
+            clientMessage: leadData.userMessage,
+            extractedName: leadData.name,
+            extractedPhone: leadData.phone,
             botReply: leadData.botReply,
+            priorityScore: leadData.priority,
             timestamp: leadData.timestamp
         });
-        console.log('✅ Instant Email Notification Sent via Formspree!');
+        console.log('✅ Advanced Lead Alert Sent via Formspree!');
     } catch (err) {
         console.error('❌ Email Alert Error:', err.message);
     }
 }
 
-// Chat Endpoint
+// Chat Endpoint with Smart Extraction
 app.post('/api/chat', async (req, res) => {
     const { message } = req.body;
     let reply = "";
@@ -30,13 +33,25 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const lowerMsg = message.toLowerCase();
+    let priority = "❄️ Cold Lead";
+    let leadName = "Not provided";
+    let leadPhone = "Not provided";
 
-    if (lowerMsg.includes('price') || lowerMsg.includes('cost') || lowerMsg.includes('rate')) {
+    // Basic Regex to detect phone numbers or contact intent
+    const phoneMatch = message.match(/(\+?\d{10,13})/);
+    if (phoneMatch) {
+        leadPhone = phoneMatch[0];
+    }
+
+    if (lowerMsg.includes('price') || lowerMsg.includes('cost') || lowerMsg.includes('rate') || lowerMsg.includes('demo')) {
+        priority = "🔥 HOT LEAD (High Intent)";
         reply = "Our automation packages start at $100. Would you like to schedule a quick demo?";
     } else if (lowerMsg.includes('hello') || lowerMsg.includes('hi') || lowerMsg.includes('hey')) {
+        priority = "⚡ Warm Lead";
         reply = "Hello! I am your AI Lead Generation Agent. How can I assist your business today?";
     } else if (lowerMsg.includes('contact') || lowerMsg.includes('email') || lowerMsg.includes('phone')) {
-        reply = "You can drop your details here, and our team will get back to you within 1 hour!";
+        priority = "🔥 HOT LEAD (Contact Shared)";
+        reply = "Got your details! Our team will get back to you within 1 hour.";
     } else {
         reply = "Thanks for reaching out! Please share your contact info so we can discuss further.";
     }
@@ -45,10 +60,13 @@ app.post('/api/chat', async (req, res) => {
         id: Date.now(),
         userMessage: message,
         botReply: reply,
+        name: leadName,
+        phone: leadPhone,
+        priority: priority,
         timestamp: new Date().toISOString()
     };
 
-    // 1. Save locally to database.json
+    // Save to Database
     fs.readFile('database.json', 'utf8', (err, data) => {
         let logs = [];
         if (!err && data) {
@@ -60,11 +78,11 @@ app.post('/api/chat', async (req, res) => {
         });
     });
 
-    // 2. Trigger Email Alert
+    // Trigger Enhanced Email Alert
     await sendEmailAlert(newLog);
 
-    res.json({ success: true, reply: reply });
+    res.json({ success: true, reply: reply, priority: priority });
 });
 
 const PORT = 3000;
-app.listen(PORT, () => console.log(`🚀 Advanced Lead Bot active on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Pro Lead Bot active on http://localhost:${PORT}`));
