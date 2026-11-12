@@ -1,59 +1,70 @@
 const express = require('express');
 const fs = require('fs');
+const axios = require('axios');
 const app = express();
+
 app.use(express.json());
 
-// Load or initialize leads database file
-const DB_FILE = 'database.json';
-if (!fs.existsSync(DB_FILE)) {
-  fs.writeFileSync(DB_FILE, JSON.stringify([]));
+// FORMSPREE EMAIL ALERT FUNCTION (No Passwords Required!)
+async function sendEmailAlert(leadData) {
+    try {
+        await axios.post('https://formspree.io/f/xjywvelj', {
+            subject: '🚨 New Lead Alert from Chatbot',
+            userMessage: leadData.userMessage,
+            botReply: leadData.botReply,
+            timestamp: leadData.timestamp
+        });
+        console.log('✅ Instant Email Notification Sent via Formspree!');
+    } catch (err) {
+        console.error('❌ Email Alert Error:', err.message);
+    }
 }
 
-function runAIAgent(userQuery) {
-  if (!userQuery) return "Please provide a valid message.";
-  const query = userQuery.toLowerCase();
+// Chat Endpoint
+app.post('/api/chat', async (req, res) => {
+    const { message } = req.body;
+    let reply = "";
 
-  if (query.includes('price') || query.includes('rate') || query.includes('paise')) {
-    return "Humare AI Automation packages $100 se start hote hain. Aapko kis type ki bot chahiye?";
-  } 
-  else if (query.includes('timing') || query.includes('time') || query.includes('open')) {
-    return "Hum 24/7 available hain! Aap kisi bhi waqt message kar sakte hain.";
-  } 
-  else if (query.includes('location') || query.includes('address') || query.includes('kahan')) {
-    return "Hum remote services provide karte hain worldwide!";
-  } 
-  else if (query.includes('hello') || query.includes('hi') || query.includes('salam')) {
-    return "Walaikumasalam! Main aapka AI Assistant hoon. Main aapki kya madad kar sakta hoon?";
-  } 
-  else {
-    return "Main aapka sawal samajh gaya hoon. Humare agent jald hi aap se contact karenge!";
-  }
-}
+    if (!message) {
+        return res.status(400).json({ error: "Message content cannot be empty." });
+    }
 
-app.post('/api/chat', (req, res) => {
-  try {
-    const userMessage = req.body.message || "";
-    const botReply = runAIAgent(userMessage);
+    const lowerMsg = message.toLowerCase();
 
-    // Save structured lead into database.json
-    const fileData = fs.readFileSync(DB_FILE, 'utf8');
-    const leads = JSON.parse(fileData);
-    
-    leads.push({
-      timestamp: new Date().toISOString(),
-      message: userMessage,
-      reply: botReply
+    if (lowerMsg.includes('price') || lowerMsg.includes('cost') || lowerMsg.includes('rate')) {
+        reply = "Our automation packages start at $100. Would you like to schedule a quick demo?";
+    } else if (lowerMsg.includes('hello') || lowerMsg.includes('hi') || lowerMsg.includes('hey')) {
+        reply = "Hello! I am your AI Lead Generation Agent. How can I assist your business today?";
+    } else if (lowerMsg.includes('contact') || lowerMsg.includes('email') || lowerMsg.includes('phone')) {
+        reply = "You can drop your details here, and our team will get back to you within 1 hour!";
+    } else {
+        reply = "Thanks for reaching out! Please share your contact info so we can discuss further.";
+    }
+
+    const newLog = {
+        id: Date.now(),
+        userMessage: message,
+        botReply: reply,
+        timestamp: new Date().toISOString()
+    };
+
+    // 1. Save locally to database.json
+    fs.readFile('database.json', 'utf8', (err, data) => {
+        let logs = [];
+        if (!err && data) {
+            try { logs = JSON.parse(data); } catch (e) { logs = []; }
+        }
+        logs.push(newLog);
+        fs.writeFile('database.json', JSON.stringify(logs, null, 2), (err) => {
+            if (err) console.error("Error logging to file:", err);
+        });
     });
 
-    fs.writeFileSync(DB_FILE, JSON.stringify(leads, null, 2));
+    // 2. Trigger Email Alert
+    await sendEmailAlert(newLog);
 
-    res.json({ status: "success", reply: botReply });
-  } catch (err) {
-    res.status(500).json({ status: "error", message: "Internal server error" });
-  }
+    res.json({ success: true, reply: reply });
 });
 
 const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Pro AI Agent running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Advanced Lead Bot active on http://localhost:${PORT}`));
